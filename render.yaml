@@ -22,7 +22,9 @@ services:
       - key: DATA_DIR
         value: /var/data
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: barangay-minante-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: SESSION_COOKIE_SECURE
@@ -37,3 +39,13 @@ services:
         sync: false
       - key: INITIAL_ADMIN_PASSWORD
         sync: false
+
+databases:
+  - name: barangay-minante-db
+    databaseName: barangay_minante
+    user: barangay_minante_user
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: "18"
+    ipAllowList: []

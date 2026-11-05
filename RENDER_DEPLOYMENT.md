@@ -1,35 +1,39 @@
 # Render PostgreSQL Setup
 
-The app now supports Render-managed PostgreSQL through `DATABASE_URL`. It still uses SQLite by default on a developer's computer. The Render Blueprint does not create a database automatically: create or select one in the Render Dashboard, then add its private connection URL to the web service. This avoids provisioning a billable database just by syncing the repository.
+The app uses SQLite by default on a developer's computer and Render-managed PostgreSQL through `DATABASE_URL` in production. The root `render.yaml` Blueprint creates both the web service and a private Render PostgreSQL database in Singapore. It connects them using the database's internal connection string. The database accepts connections only from Render's private network by default.
 
-## Configure the PostgreSQL service shown in your example
+## Configure the PostgreSQL service
 
-1. In Render, open **New + → PostgreSQL**. If you already created the database shown in your screenshot, open and use that database instead of creating another one.
-2. If creating it now, name it (for example, `barangay-minante-db`), choose **Singapore**, and PostgreSQL **18**. For ongoing use, choose the smallest paid plan rather than Free. Set the database and user names or keep Render's generated values, then create it.
-3. Push and deploy this PostgreSQL-ready application code before setting `DATABASE_URL`. The currently deployed SQLite-only version rejects PostgreSQL URLs. The updated code still runs on the SQLite fallback until you add the database URL.
-4. Open the database's **Connect** panel and copy its **Internal Database URL**. Keep it private. The web service and database should both be in Singapore so they can communicate over Render's private network.
-5. Open the `barangay-minante-1` web service → **Environment**. Add `DATABASE_URL` and paste the Internal Database URL as its value. Do not put this URL in the repository, a screenshot, or a public issue.
-6. Keep `DATA_DIR=/var/data` for private ID scans, attachments, signatures, and generated files. The Blueprint keeps the existing 1 GB disk for these files; PostgreSQL stores relational records. Do not set `SQLITE_DB_PATH` on Render. Set `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_PASSWORD`, and a strong `SECRET_KEY` before the first start on a new database.
-7. Render redeploys the service after the environment change. `python seed.py` creates/upgrades the PostgreSQL schema and initializes the administrator/catalogs; it preserves an existing administrator and does not create demo residents. Confirm `/healthz` returns `{"status":"ok","database":"postgresql"}`, then sign in and create a harmless test record. Restart and verify it remains.
+1. In Render, create a Blueprint from the repository's `workspace-latest` branch. The root `render.yaml` defines both the `barangay-minante-1` web service and the `barangay-minante-db` PostgreSQL database.
+2. Review the resources before creating them. The database is in Singapore, uses PostgreSQL 18, the smallest paid compute plan (`0.1c-256mb`), and 1 GB of storage. `DATABASE_URL` is linked to its internal connection string. Its IP allow list is empty so only Render private-network clients can connect by default.
+3. Keep `DATA_DIR=/var/data` for private ID scans, attachments, signatures, and generated documents. The Blueprint creates a separate 1 GB persistent disk for these files. Do not set `SQLITE_DB_PATH` on Render.
+4. Set `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_NAME`, and a strong `INITIAL_ADMIN_PASSWORD` in the Blueprint prompts. Render generates `SECRET_KEY`.
+5. If preserving local records, migrate them before allowing the web service to initialize the empty PostgreSQL database. Temporarily allow only your current public IP in the database's inbound IP rules for migration, then remove that rule.
+6. `python seed.py` creates/upgrades the PostgreSQL schema and initializes the administrator and catalogs. It preserves an existing administrator and does not create demo residents. Confirm `/healthz` returns `{"status":"ok","database":"postgresql"}`, then sign in, create a harmless test record, restart, and verify the record remains.
+## Preserve the existing local SQLite records
 
-## Retain records from an existing SQLite database
+The project folder contains `barangay_system/instance/minante.db`. The root `.gitignore` excludes that database from GitHub, so a Render PostgreSQL database will start empty unless you migrate records. The migration utility requires an empty PostgreSQL target; `python seed.py` initializes the web service database, so migrate before creating the web service.
 
-Pointing `DATABASE_URL` at PostgreSQL creates a new database; it does not transfer SQLite records or uploaded files. If the records matter, take and verify a SQLite backup before switching. Then, **before deploying the web service against the new empty database**, run the migration utility from a computer that can reach the database's External Database URL:
+1. In Render, create only a PostgreSQL database first. Match the Blueprint: name `barangay-minante-db`, database `barangay_minante`, user `barangay_minante_user`, Singapore, PostgreSQL 18, paid plan `0.1c-256mb`, and 1 GB storage.
+2. In the database's inbound IP rules, temporarily allow only your computer's current public IP. Do not allow all IPs. Copy the External Database URL and keep it private.
+3. In PowerShell, run the migration utility from the `barangay_system` folder. Set `DATABASE_URL` to the External Database URL, run a dry run, review its row counts, then run with `--apply` only if they are correct:
 
-```powershell
-cd barangay_system
-$env:DATABASE_URL = "<Render External Database URL>"
-python migrate_sqlite_to_postgres.py --source "<path to verified minante.db>"
-python migrate_sqlite_to_postgres.py --source "<path to verified minante.db>" --apply
-```
+   ```powershell
+   cd barangay_system
+   $env:DATABASE_URL = "<Render External Database URL>"
+   ..\.venv\Scripts\python.exe migrate_sqlite_to_postgres.py --source "instance\minante.db"
+   ..\.venv\Scripts\python.exe migrate_sqlite_to_postgres.py --source "instance\minante.db" --apply
+   ```
 
-The first command is a dry run. The second copies records only if PostgreSQL is empty, validates table row counts, resets integer ID sequences, and leaves SQLite untouched. Do not run the migration twice. Before the migration, allow only your computer's current public IP under the database's inbound IP rules; never open PostgreSQL to all IPs for this step. After checking the successful migration output, set the web service's `DATABASE_URL` to its **Internal Database URL** and deploy. Remove the temporary external-IP rule after migrating. The utility deliberately stops if it finds unknown tables or columns rather than silently dropping them.
+   If using system Python instead of the project virtual environment, install `requirements.txt` first. Never paste the database URL into GitHub or a screenshot.
+4. After the migration succeeds, remove the temporary public IP rule. Then create the Blueprint from `workspace-latest`. It will attach the existing database and create the web service. Render injects the private `DATABASE_URL` into the web service.
+5. Enter the initial administrator settings when prompted. The startup seed creates or upgrades the schema and preserves the migrated administrator. The utility never modifies the SQLite source and stops if it detects unknown tables/columns or data already present in PostgreSQL.
+6. The utility does not copy uploaded files. If existing records refer to files in `barangay_system/instance/uploads`, `identifications`, or `signatures`, copy those files to the Render disk at the appropriate `DATA_DIR` paths before exposing the service. Verify access and file persistence after deployment.
 
-The currently deployed Free Render service may keep its SQLite file on an ephemeral filesystem. If that database exists only on Render and you do not have a local/verified SQLite backup, do not switch `DATABASE_URL` yet: the change alone cannot retrieve or copy that file. Export and verify the source records first. The migration utility does not transfer uploaded files; copy any files needed by those records into the persistent `DATA_DIR` disk before the switch.
-
+To start with an empty database instead, create the Blueprint directly. The startup seed initializes the empty PostgreSQL database with the admin account and catalogs.
 ## Cost and data-retention notes
 
-As of October 2026, Render lists the smallest paid web plan at **$7/month**, its smallest paid PostgreSQL plan (`0.1c-256mb`) at **$6/month**, and a 1 GB persistent disk at **$0.25/month**. With this Blueprint's web plan and disk, the estimated base is about **$13.25/month**, before taxes, bandwidth, or other usage. Confirm the prices shown in your workspace before creating or upgrading resources.
+As of November 2026, Render lists the smallest paid web plan at **$7/month**, the smallest paid PostgreSQL compute plan (`0.1c-256mb`) at **$6/month**, PostgreSQL storage at **$0.30/GB-month**, and a 1 GB persistent disk at **$0.25/month**. With 1 GB of database storage, the estimated base is about **$13.55/month**, before taxes, bandwidth, or other usage. Confirm the prices shown in your workspace before creating or upgrading resources.
 
 Render Free PostgreSQL is suitable for a temporary test only: it is limited to 1 GB, expires 30 days after creation, has no backups, and is deleted after the additional 14-day grace period if not upgraded. Free web-service files are ephemeral. Paid PostgreSQL persists relational data; the attached disk is for the app's file uploads. Review Render's current [pricing](https://render.com/pricing), [Free instance limitations](https://render.com/docs/free), and [Postgres documentation](https://render.com/docs/postgresql) before using real resident data.
 
