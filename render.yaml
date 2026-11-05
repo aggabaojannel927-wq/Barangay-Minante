@@ -3,14 +3,9 @@ services:
     name: barangay-minante-1
     runtime: python
     region: singapore
-    # PostgreSQL stores relational data. The persistent disk keeps private
-    # resident uploads and generated documents across Render deploys.
-    plan: 0.5c-512mb
+    # Free temporary demo only. Files on this service are ephemeral.
+    plan: free
     numInstances: 1
-    disk:
-      name: minante-data
-      mountPath: /var/data
-      sizeGB: 1
     rootDir: barangay_system
     buildCommand: pip install -r requirements.txt
     startCommand: python seed.py && gunicorn --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT app:app
@@ -19,8 +14,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.15
-      - key: DATA_DIR
-        value: /var/data
       - key: DATABASE_URL
         fromDatabase:
           name: barangay-minante-db
@@ -45,7 +38,7 @@ databases:
     databaseName: barangay_minante
     user: barangay_minante_user
     region: singapore
-    plan: 0.1c-256mb
+    plan: free
     diskSizeGB: 1
     postgresMajorVersion: "18"
     ipAllowList: []
