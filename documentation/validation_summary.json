@@ -1,0 +1,37 @@
+{
+  "full_pdf_pages": 103,
+  "cheat_sheet_pages": 3,
+  "word_tables": 52,
+  "word_figures": 17,
+  "defense_questions": 82,
+  "sqlite_tables": 35,
+  "source_declared_routes": 72,
+  "source_files": 59,
+  "blank_pdf_pages": [],
+  "out_of_page_text_blocks": [],
+  "source_drift": [],
+  "editable_word_content": "Native paragraphs/tables; diagrams and screenshots are pictures",
+  "unverified": "Installed Microsoft Word rendering and physical printing",
+  "files": [
+    {
+      "name": "Barangay_Minante_1_Integrated_Management_System_Full_Documentation.docx",
+      "bytes": 1503120,
+      "sha256": "1d9f5bbe95f271f57143d827533e70ddba0be083069f47127e6660c6b3a83db1"
+    },
+    {
+      "name": "Barangay_Minante_1_Integrated_Management_System_Full_Documentation.pdf",
+      "bytes": 1874610,
+      "sha256": "8dda36d03da9d5dd19b93150386a16d583ab541d92d71fb1943b7cd9a585daaf"
+    },
+    {
+      "name": "Barangay_Minante_1_Defense_Cheat_Sheet.docx",
+      "bytes": 40389,
+      "sha256": "ffe05a7fe1a8758bc4842e94407d9fa08aa1e9a385d82a287a6c9c751d0a33a1"
+    },
+    {
+      "name": "Barangay_Minante_1_Defense_Cheat_Sheet.pdf",
+      "bytes": 84092,
+      "sha256": "2a66009b25ea54a83bcf3441f54e780864f2fe27751d589412094e6bb61a95e2"
+    }
+  ]
+}

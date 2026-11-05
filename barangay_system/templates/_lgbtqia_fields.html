@@ -1,0 +1,37 @@
+{% set field_id=lgbtqia_field_id|default('lgbtqiaIdentification') %}
+{% set selected_value=lgbtqia_selected|default('') %}
+{% set current_value=lgbtqia_current|default('') %}
+{% set staff_assisted=lgbtqia_staff_assisted|default(false) %}
+<section class="privacy-sensitive-field" aria-labelledby="{{ field_id }}Heading">
+  <h3 id="{{ field_id }}Heading">LGBTQIA+ Self-Identification <span class="optional-label">(Optional)</span></h3>
+  <p class="muted">This information is voluntary and will be used only for authorized, aggregated barangay demographic reporting and community program planning. You may choose not to disclose this information. See the <a href="{{ url_for('privacy_notice') }}" target="_blank" rel="noopener">Privacy Notice</a> for access, handling, and retention details.</p>
+  {% if staff_assisted %}<p class="muted">Ask neutrally. Do not guess or classify the resident. Leave this as Not provided if they do not choose to answer.</p>{% endif %}
+  <div class="field">
+    <label for="{{ field_id }}">{{ 'Resident’s answer' if staff_assisted else 'Your answer' }}</label>
+    <select id="{{ field_id }}" name="lgbtqia_identification" data-current="{{ current_value }}" aria-describedby="{{ field_id }}ConsentHint">
+      <option value="" {% if not selected_value %}selected{% endif %}>{{ lgbtqia_empty_label|default('Choose not to answer') }}</option>
+      <option value="yes" {% if selected_value=='yes' %}selected{% endif %}>Yes — I identify as LGBTQIA+.</option>
+      <option value="no" {% if selected_value=='no' %}selected{% endif %}>No — I do not identify as LGBTQIA+.</option>
+      <option value="prefer_not_to_say" {% if selected_value=='prefer_not_to_say' %}selected{% endif %}>Prefer not to say</option>
+    </select>
+  </div>
+  <div class="field consent-field">
+    <label class="check-label" for="{{ field_id }}Consent">
+      <input id="{{ field_id }}Consent" type="checkbox" name="lgbtqia_consent" value="1" {% if lgbtqia_consent_checked %}checked{% endif %}>
+      {{ 'The resident voluntarily provided this answer and consented to recording it.' if staff_assisted else 'I voluntarily consent to recording this optional answer for the limited purposes described above.' }}
+    </label>
+    <small id="{{ field_id }}ConsentHint">Consent is required only when a new or changed answer is recorded. Leaving the answer blank does not affect registration or services.</small>
+  </div>
+</section>
+<script>
+(() => {
+  const answer = document.getElementById({{ field_id|tojson }});
+  const consent = document.getElementById({{ (field_id ~ 'Consent')|tojson }});
+  if (!answer || !consent) return;
+  const update = () => {
+    consent.required = Boolean(answer.value && answer.value !== answer.dataset.current);
+  };
+  answer.addEventListener('change', update);
+  update();
+})();
+</script>

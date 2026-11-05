@@ -1,0 +1,5 @@
+# Documentation tooling; application requirements remain in barangay_system/requirements.txt.
+reportlab==5.0.1
+pypdf==6.19.0
+pymupdf==1.28.2
+# Also uses the application's python-docx, matplotlib and Pillow installation.

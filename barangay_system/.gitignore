@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+instance/*.pdf
+instance/*.db
+instance/*.db-shm
+instance/*.db-wal
+instance/uploads/
+instance/permits/
+instance/backups/
+audit-artifacts/
+*-audit-output.txt
+revision-test-output.txt
+identifications/
+signatures/
