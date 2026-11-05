@@ -11,6 +11,41 @@
 <div class="field"><label for="contact_number">Mobile number (optional)</label><input id="contact_number" name="contact_number" type="tel" maxlength="20" value="{{ request.form.get('contact_number','') }}"><small>Leave blank if unavailable. The resident can follow up at the desk using their printed reference.</small></div>
 </div>
 {% include '_resident_family_fields.html' %}
+<section class="privacy-sensitive-field" aria-labelledby="walkinLgbtqiaHeading">
+  <h2 id="walkinLgbtqiaHeading">LGBTQIA+ Self-Identification <span class="optional-label">(Optional)</span></h2>
+  <p class="muted">Ask the resident directly and record their answer only with their consent. This information is confidential and is not needed to receive Barangay services.</p>
+  <fieldset class="field lgbtqia-answer">
+    <legend>Is this resident part of the LGBTQIA+ community?</legend>
+    {% for value, label in [('yes', 'Yes'), ('no', 'No'), ('prefer_not_to_say', 'Prefer not to say')] %}
+    <label class="radio-option"><input type="radio" name="lgbtqia_identification" value="{{ value }}" {% if request.form.get('lgbtqia_identification') == value %}checked{% endif %}> {{ label }}</label>
+    {% endfor %}
+  </fieldset>
+  <div id="walkinLgbtqiaCategoryField" class="field" {% if request.form.get('lgbtqia_identification') != 'yes' %}hidden{% endif %}>
+    <label for="walkinLgbtqiaCategory">If yes, which identity describes the resident? *</label>
+    <select id="walkinLgbtqiaCategory" name="lgbtqia_category">
+      <option value="">Choose an identity</option>
+      {% for value, label in lgbtqia_categories %}<option value="{{ value }}" {% if request.form.get('lgbtqia_category') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <label class="check-label"><input id="walkinLgbtqiaConsent" type="checkbox" name="lgbtqia_consent" value="1" {% if request.form.get('lgbtqia_consent') == '1' %}checked{% endif %}> The resident voluntarily provided this answer and agreed to have it recorded.</label>
+</section>
+<script>
+(() => {
+  const radios = document.querySelectorAll('input[name="lgbtqia_identification"]');
+  const field = document.getElementById('walkinLgbtqiaCategoryField');
+  const category = document.getElementById('walkinLgbtqiaCategory');
+  const consent = document.getElementById('walkinLgbtqiaConsent');
+  const update = () => {
+    const answer = document.querySelector('input[name="lgbtqia_identification"]:checked')?.value || '';
+    field.hidden = answer !== 'yes';
+    category.required = answer === 'yes';
+    consent.required = Boolean(answer);
+    if (answer !== 'yes') category.value = '';
+  };
+  radios.forEach((radio) => radio.addEventListener('change', update));
+  update();
+})();
+</script>
 <h2>Identity document (if available)</h2><p>Staff may scan the resident's paper ID. Verification and approval are completed by the Administrator. An ID can also be added later at the front desk.</p>
 {% include '_walkin_identity_fields.html' %}
 <p><label class="check-label"><input type="checkbox" name="privacy_consent" value="1" required> I explained the privacy notice and recorded the resident's consent to store their details for Barangay services.</label> <a href="{{ url_for('privacy_notice') }}" target="_blank" rel="noopener">Read privacy notice</a></p>

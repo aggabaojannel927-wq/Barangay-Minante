@@ -137,6 +137,8 @@ class ResidentProfile(db.Model, TimestampMixin):
     disability_declined = db.Column(db.Boolean, nullable=False, default=False)
     disability_type = db.Column(db.String(50))
     disability_other = db.Column(db.String(300))
+    lgbtqia_identification = db.Column(db.String(24))
+    lgbtqia_category = db.Column(db.String(32))
     family_members = db.relationship("ResidentFamilyMember", back_populates="head_profile",
                                     order_by="ResidentFamilyMember.id")
     household_number = db.Column(db.String(80))

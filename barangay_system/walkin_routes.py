@@ -13,6 +13,7 @@ from permissions import permission_required
 from services.event_availability import reserve_event, ReservationConflict
 from services.revision import LOCAL_TIMEZONE
 from services.resident_family import DISABILITY_TYPES, validate_family, save_family, form_family_rows
+from services.lgbtqia_profile import LGBTQIA_CATEGORIES, LGBTQIA_CATEGORY_VALUES
 
 
 def register_walkin_routes(app, login_required, actor, audit, save_id, save_upload,
@@ -56,6 +57,16 @@ def register_walkin_routes(app, login_required, actor, audit, save_id, save_uplo
                 if request.form.get('privacy_consent') != '1':
                     raise ValueError('Explain the privacy notice and record the resident’s consent.')
                 family_data = validate_family(request.form)
+                lgbtqia_answer = request.form.get('lgbtqia_identification', '').strip()
+                lgbtqia_category = request.form.get('lgbtqia_category', '').strip()
+                if lgbtqia_answer not in ('', 'yes', 'no', 'prefer_not_to_say'):
+                    raise ValueError('Choose Yes, No, or Prefer not to say for LGBTQIA+ self-identification.')
+                if lgbtqia_answer == 'yes' and lgbtqia_category not in LGBTQIA_CATEGORY_VALUES:
+                    raise ValueError('If the resident answers Yes, choose an LGBTQIA+ identity category.')
+                if lgbtqia_answer != 'yes' and lgbtqia_category:
+                    raise ValueError('Choose an LGBTQIA+ identity category only when the answer is Yes.')
+                if lgbtqia_answer and request.form.get('lgbtqia_consent') != '1':
+                    raise ValueError('Record the resident\'s separate consent before saving this optional answer.')
                 lock_writer()
                 # A shared phone may belong to a household: present candidates rather than merge.
                 same_name = func.lower(func.trim(User.full_name)) == name.lower()
@@ -77,7 +88,9 @@ def register_walkin_routes(app, login_required, actor, audit, save_id, save_uplo
                 db.session.flush()
                 profile = ResidentProfile(user_id=resident.id, house_number_street=address,
                     purok_zone=purok, date_of_birth=birthday, privacy_consent=True,
-                    privacy_consented_at=utcnow(), approval_status='Pending')
+                    privacy_consented_at=utcnow(), approval_status='Pending',
+                    lgbtqia_identification=lgbtqia_answer or None,
+                    lgbtqia_category=lgbtqia_category or None)
                 identity_evidence(profile)
                 db.session.add(profile)
                 db.session.flush()
@@ -91,7 +104,8 @@ def register_walkin_routes(app, login_required, actor, audit, save_id, save_uplo
                 flash(str(exc) if isinstance(exc, ValueError) else 'The resident could not be saved. Search for an existing record and try again.', 'danger')
         response = app.make_response(render_template('walkin_resident.html', id_types=AcceptedIdType.query.filter_by(
             is_active=True, is_accepted_for_registration=True).order_by(AcceptedIdType.name).all(),
-            disability_types=DISABILITY_TYPES, family_rows=form_family_rows(request.form), profile=None))
+            disability_types=DISABILITY_TYPES, family_rows=form_family_rows(request.form), profile=None,
+            lgbtqia_categories=LGBTQIA_CATEGORIES))
         response.headers['Cache-Control'] = 'private, no-store'
         return response
 

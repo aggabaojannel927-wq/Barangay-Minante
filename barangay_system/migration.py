@@ -46,6 +46,8 @@ ADDITIONS = {
         "disability_declined": "BOOLEAN NOT NULL DEFAULT 0",
         "disability_type": "VARCHAR(50)",
         "disability_other": "VARCHAR(300)",
+        "lgbtqia_identification": "VARCHAR(24)",
+        "lgbtqia_category": "VARCHAR(32)",
         "household_number": "VARCHAR(80)",
         "emergency_contact_name": "VARCHAR(150)",
         "emergency_contact_relationship": "VARCHAR(80)",
