@@ -69,7 +69,7 @@ def main():
             root.locator('#calendarEnd').fill(payload['proposed_end_time']);root.locator('#calendarEnd').dispatch_event('change')
             expect(day).to_have_class('calendar-day booked')
             fixture.auth('admin')
-            assert fixture.post(f'/events/{event_id}',{'status':'Cancelled'}).status_code==200
+            assert fixture.post(f'/events/{event_id}',{'status':'Cancelled'}).status_code==302
             page.clock.fast_forward(31000)
             expect(day).not_to_have_class('calendar-day booked')
             assert not errors,errors
