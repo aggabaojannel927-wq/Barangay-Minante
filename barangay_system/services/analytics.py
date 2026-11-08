@@ -27,6 +27,13 @@ def _manila_date_part(stamp, part):
     return func.strftime({'year': '%Y', 'month': '%m'}[part], stamp, '+8 hours')
 
 
+def _elapsed_in_units(start, end, seconds_per_unit):
+    """Return a portable SQL expression for elapsed hours, minutes, or seconds."""
+    if db.engine.dialect.name == 'postgresql':
+        return extract('epoch', end - start) / seconds_per_unit
+    return (func.julianday(end) - func.julianday(start)) * (86400 / seconds_per_unit)
+
+
 def build_dashboard_analytics(moment=None):
     """Current service counts and twelve Manila submission months, without PII."""
     from datetime import datetime
@@ -282,7 +289,9 @@ def build_report(filters):
         add('Requests by Purok',q.join(ResidentProfile,ResidentProfile.user_id==PermitApplication.applicant_id) if not filters['purok'] else q,ResidentProfile.purok_zone)
         historical_resubmissions=q.filter(PermitApplication.requirement_records.any(ApplicationRequirement.history.any(RequirementHistory.status=='Needs Resubmission'))).count()
         summary('Requirements resubmission history',[('Requests ever returned for requirements',historical_resubmissions),('Resubmission rate (%)',round(historical_resubmissions*100/total,2) if total else 0)])
-        avg = q.filter(PermitApplication.released_at.isnot(None)).with_entities(func.avg((func.julianday(PermitApplication.released_at)-func.julianday(PermitApplication.created_at))*24)).scalar()
+        avg = q.filter(PermitApplication.released_at.isnot(None)).with_entities(
+            func.avg(_elapsed_in_units(PermitApplication.created_at, PermitApplication.released_at, 3600))
+        ).scalar()
         if avg is not None:
             summary('Measured processing time',[('Average submission-to-release hours',round(avg,2))])
     if selected in {'overall','events'}:
@@ -293,7 +302,7 @@ def build_report(filters):
         trend('Event requests over time',q,EventRequest.created_at)
         reservations=query(EventReservation).filter(EventReservation.status=='Reserved').join(EventRequest,EventReservation.event_request_id==EventRequest.id)
         add('Reserved venue hours',reservations.join(EventVenue,EventReservation.venue_id==EventVenue.id),EventVenue.name,
-            amount=(func.julianday(EventReservation.ends_at)-func.julianday(EventReservation.starts_at))*24)
+            amount=_elapsed_in_units(EventReservation.starts_at, EventReservation.ends_at, 3600))
         summary('Event scheduling records',[('Schedule conflicts recorded',query(ActivityLog,ActivityLog.timestamp).filter(ActivityLog.action=='EVENT_SLOT_CONFLICT_DETECTED').count())])
     for key,model,title,column,owner in [('blotters',BlotterCase,'Blotter cases',BlotterCase.status,None),('queue',QueueEntry,'Queue volume',QueueEntry.status,None),('appointments',Schedule,'Appointments',Schedule.status,None)]:
         if selected in {'overall',key}:
@@ -301,10 +310,14 @@ def build_report(filters):
             add(title,q,column)
             trend(title+' over time',q,model.created_at)
             if key=='queue':
-                avg=q.filter(QueueEntry.called_at.isnot(None)).with_entities(func.avg((func.julianday(QueueEntry.called_at)-func.julianday(QueueEntry.created_at))*1440)).scalar()
+                avg=q.filter(QueueEntry.called_at.isnot(None)).with_entities(
+                    func.avg(_elapsed_in_units(QueueEntry.created_at, QueueEntry.called_at, 60))
+                ).scalar()
                 if avg is not None:
                     summary('Measured queue waiting time',[('Average waiting minutes',round(avg,2))])
-                served=q.filter(QueueEntry.completed_at.isnot(None),QueueEntry.served_at.isnot(None)).with_entities(func.avg((func.julianday(QueueEntry.completed_at)-func.julianday(QueueEntry.served_at))*1440)).scalar()
+                served=q.filter(QueueEntry.completed_at.isnot(None),QueueEntry.served_at.isnot(None)).with_entities(
+                    func.avg(_elapsed_in_units(QueueEntry.served_at, QueueEntry.completed_at, 60))
+                ).scalar()
                 if served is not None:
                     summary('Measured queue serving time',[('Average serving minutes',round(served,2))])
     if selected in {'overall','payments'}:

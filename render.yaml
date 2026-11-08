@@ -35,3 +35,5 @@ services:
         sync: false
       - key: INITIAL_ADMIN_PASSWORD
         sync: false
+      - key: ADMIN_CREDENTIAL_RESET_TOKEN
+        sync: false

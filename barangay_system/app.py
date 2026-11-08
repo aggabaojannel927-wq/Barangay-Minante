@@ -2,7 +2,7 @@ import json
 import os 
 import re
 import secrets
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 from flask import (
@@ -1293,6 +1293,11 @@ def dashboard():
     from services.revision import LOCAL_TIMEZONE
     # Appointment fields are entered/stored as Manila wall time in this legacy workflow.
     appointment_now = datetime.now(LOCAL_TIMEZONE).replace(tzinfo=None)
+    manila_today = local_today()
+    manila_day_start = local_datetime(f"{manila_today.isoformat()}T00:00:00")
+    manila_next_day_start = local_datetime(
+        f"{(manila_today + timedelta(days=1)).isoformat()}T00:00:00"
+    )
     personal_only = user.role == "resident"
     permits_query = (
         PermitApplication.query.filter_by(applicant_id=user.id)
@@ -1363,7 +1368,11 @@ def dashboard():
             + EventRequest.query.filter_by(requester_id=user.id).count(),
             "ready_for_release": work_permits.filter(PermitApplication.status == "Ready for Pickup").count(),
             "requirements_needing_correction": work_permits.filter(PermitApplication.requirement_records.any(ApplicationRequirement.status == "Needs Resubmission")).count(),
-            "walkin_transactions_today": PermitApplication.query.filter(PermitApplication.request_source != "Online", func.date(PermitApplication.created_at, '+8 hours') == local_today()).count(),
+            "walkin_transactions_today": PermitApplication.query.filter(
+                PermitApplication.request_source != "Online",
+                PermitApplication.created_at >= manila_day_start,
+                PermitApplication.created_at < manila_next_day_start,
+            ).count(),
         }
     else:
         active_statuses = [

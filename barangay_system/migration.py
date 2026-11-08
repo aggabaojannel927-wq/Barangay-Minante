@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from sqlalchemy import inspect, text
 from sqlalchemy.schema import CreateTable
 
-from models import ResidentProfile, User, db
+from models import AcceptedIdType, Announcement, ResidentProfile, User, db
 
 
 ADDITIONS = {
@@ -244,7 +244,9 @@ def _normalize_legacy_rows(added_columns=None):
     added_columns = added_columns or set()
     tables = set(inspect(db.engine).get_table_names())
     if "announcements" in tables and ("announcements", "status") in added_columns:
-        db.session.execute(text("UPDATE announcements SET status='Published' WHERE is_published=1"))
+        db.session.query(Announcement).filter(Announcement.is_published.is_(True)).update(
+            {"status": "Published"}, synchronize_session=False
+        )
     if "blotter_cases" in tables:
         db.session.execute(
             text("UPDATE blotter_cases SET status='Filed' WHERE status='Pending'")
@@ -298,12 +300,10 @@ def _normalize_legacy_rows(added_columns=None):
     ):
         # Before this flag existed, active entries were the Administrator's
         # registration-accepted list. Preserve that decision during upgrade.
-        db.session.execute(
-            text(
-                "UPDATE accepted_id_types SET is_accepted_for_registration=1 "
-                "WHERE is_active=1 AND is_accepted_for_registration=0"
-            )
-        )
+        db.session.query(AcceptedIdType).filter(
+            AcceptedIdType.is_active.is_(True),
+            AcceptedIdType.is_accepted_for_registration.is_(False),
+        ).update({"is_accepted_for_registration": True}, synchronize_session=False)
     if "resident_profiles" in tables:
         # Existing approved accounts are preserved as verified by this explicit
         # legacy migration decision. Pending accounts enter the new review flow.
