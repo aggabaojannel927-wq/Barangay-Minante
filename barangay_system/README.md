@@ -1,12 +1,12 @@
 # Barangay Minante 1 Integrated Management System
 
-This Flask system uses a persistent SQLite database for Barangay Minante 1, Cauayan City, Isabela. It manages resident accounts, permits, events, blotter cases, schedules, notifications, logs, reports, and approved system configuration.
+This Flask system uses SQLite for local development and PostgreSQL when deployed with Render's `DATABASE_URL`. It manages resident accounts, permits, events, blotter cases, schedules, notifications, logs, reports, and approved system configuration.
 
 ## Resident verification workflow
 
 Resident Type and Residency Status are separate current-profile fields. New registrations require an Administrator-accepted valid ID document, start with pending ID and address verification, and cannot be approved until both are Verified by an Administrator. Uploaded ID documents are stored privately, are not part of reports or notifications, and can only be opened by the owning resident or an Administrator.
 
-The Administrator configures supported ID types and decides which are accepted for registration. It can also manage Resident Types, fees, venues, and other approved operational settings. Existing users and historical transactions are preserved by additive SQLite migrations.
+The Administrator configures supported ID types and decides which are accepted for registration. It can also manage Resident Types, fees, venues, and other approved operational settings. Existing users and historical transactions are preserved by additive schema migrations.
 
 ## Permit, walk-in, and release workflow
 
@@ -36,11 +36,11 @@ Announcements accept publication and expiration date/time in **Asia/Manila**, st
 
 ## Analytics and PDF reports
 
-The Administrator dashboard contains a concise summary. **Reports & Analytics** automatically displays all-time Permit, Event Request, Blotter and Overall summaries from SQLite without filter controls. Charts and exact data tables exclude private applicant documents and case narratives.
+The Administrator dashboard contains a concise summary. **Reports & Analytics** automatically displays all-time Permit, Event Request, Blotter and Overall summaries from the configured database without filter controls. Charts and exact data tables exclude private applicant documents and case narratives.
 
 Report downloads use ReportLab PDF output with charts rendered by matplotlib. Report views and PDF exports are audited. PDF editing/copying restrictions apply in compatible viewers; they do not provide tamper-proof certification. Online submissions retain Submission Acknowledgment terminology; paid transactions use Payment Receipt.
 
-## Additive SQLite upgrade
+## Additive database upgrade
 
 Back up the configured database and private upload directories before deploying to a live installation. Start through `run.ps1` / `app.py`, or run `python -m flask --app app init-db` before starting a WSGI server. Migrations add missing tables, columns, and query indexes without deleting records. They do not invent payments for old payment-confirmation flags. Review any historical paid/released records lacking payment evidence rather than silently backfilling them. Existing fees remain unchanged.
 
@@ -81,7 +81,7 @@ $env:INITIAL_ADMIN_PASSWORD = "A-private-strong-password-123"
 
 ## Render note
 
-Render Free has an ephemeral filesystem. A SQLite database and private uploads will not survive a restart or redeploy there. Use it for demonstrations only; production SQLite requires a persistent mounted disk and one service instance. See [`RENDER_DEPLOYMENT.md`](../RENDER_DEPLOYMENT.md).
+Render Free services use an ephemeral filesystem, so private uploads can disappear on restart, redeploy, or spin-down. The Render Blueprint connects the application to PostgreSQL for relational records. Free Render Postgres expires 30 days after creation. Use this setup for demonstrations only; see [`RENDER_DEPLOYMENT.md`](../RENDER_DEPLOYMENT.md) for steps and limitations.
 
 ## Validation
 

@@ -1,11 +1,30 @@
 """Privacy-safe SQL aggregates shared by dashboard, reports and PDF exports."""
 from datetime import date, timedelta
-from sqlalchemy import func, case, distinct
+from sqlalchemy import func, case, distinct, text, extract
 from models import (db, User, ResidentProfile, ResidentType, PermitApplication,
     PermitType, EventRequest, EventVenue, BlotterCase, QueueEntry,
     Schedule, Payment, Announcement,
     ResidentFeedback, ActivityLog, ApplicationRequirement, EventReservation, RequirementHistory)
 from services.revision import local_datetime
+
+
+def _manila_timestamp(stamp):
+    """Shift the stored naive UTC timestamp to Manila time in SQL."""
+    if db.engine.dialect.name == 'postgresql':
+        return stamp + text("INTERVAL '8 hours'")
+    return stamp
+
+
+def _manila_month(stamp):
+    if db.engine.dialect.name == 'postgresql':
+        return func.to_char(_manila_timestamp(stamp), 'YYYY-MM')
+    return func.strftime('%Y-%m', stamp, '+8 hours')
+
+
+def _manila_date_part(stamp, part):
+    if db.engine.dialect.name == 'postgresql':
+        return extract(part, _manila_timestamp(stamp))
+    return func.strftime({'year': '%Y', 'month': '%m'}[part], stamp, '+8 hours')
 
 
 def build_dashboard_analytics(moment=None):
@@ -38,7 +57,7 @@ def build_dashboard_analytics(moment=None):
                       sum(count for state, count in statuses if state not in {'Resolved', 'Closed'})}
                      for title, status in metrics)
         # Creation time matches reports: count submissions, not event or incident dates.
-        month = func.strftime('%Y-%m', model.created_at, '+8 hours')
+        month = _manila_month(model.created_at)
         recorded = dict(db.session.query(month, func.count(model.id)).filter(
             model.created_at >= start, model.created_at < end).group_by(month).all())
         trend = [[datetime(year, month + 1, 1).strftime('%b %Y'), recorded.get(month_key, 0)]
@@ -208,9 +227,9 @@ def build_report(filters):
             end = date.fromisoformat(filters['end']) + timedelta(days=1)
             q = q.filter(stamp < local_datetime(end.isoformat() + 'T00:00:00'))
         if filters['year']:
-            q = q.filter(func.strftime('%Y', stamp, '+8 hours') == filters['year'])
+            q = q.filter(_manila_date_part(stamp, 'year') == int(filters['year']))
         if filters['month']:
-            q = q.filter(func.strftime('%m', stamp, '+8 hours') == f"{int(filters['month']):02d}")
+            q = q.filter(_manila_date_part(stamp, 'month') == int(filters['month']))
         if filters['status'] and hasattr(model, 'status') and not (selected == 'payments' and model != Payment):
             q = q.filter(model.status == filters['status'])
         if filters['purok'] and owner is not None:
@@ -223,13 +242,13 @@ def build_report(filters):
         sections.append({'title': title, 'kind': kind, 'rows': [(str(k) if k is not None else 'Unspecified', float(v) if amount is not None else int(v)) for k,v in rows]})
 
     def trend(title, q, stamp, amount=None):
-        add(title, q, func.strftime('%Y-%m', stamp, '+8 hours'), 'line', amount)
+        add(title, q, _manila_month(stamp), 'line', amount)
 
     def summary(title, rows):
         sections.append({'title': title, 'kind': 'table', 'rows': rows})
 
     def stacked(title, q, stamp, status):
-        month=func.strftime('%Y-%m',stamp,'+8 hours')
+        month=_manila_month(stamp)
         rows=q.with_entities(month,status,func.count()).group_by(month,status).order_by(month,status).all()
         sections.append({'title':title,'kind':'stacked','rows':[(f'{m} · {s}',int(n)) for m,s,n in rows]})
 

@@ -1,4 +1,4 @@
-"""Non-destructive, idempotent SQLite schema upgrades.
+"""Non-destructive, idempotent schema upgrades for SQLite and PostgreSQL.
 
 The migration creates missing tables, columns, and ORM-declared indexes.
 The family-member leaf table can be rebuilt transactionally to relax legacy
@@ -184,6 +184,10 @@ def _add_missing_columns():
         for name, ddl in columns.items():
             if name in existing:
                 continue
+            if db.engine.dialect.name == "postgresql":
+                ddl = ddl.replace("DATETIME", "TIMESTAMP")
+                ddl = ddl.replace("BOOLEAN NOT NULL DEFAULT 0", "BOOLEAN NOT NULL DEFAULT FALSE")
+                ddl = ddl.replace("BOOLEAN NOT NULL DEFAULT 1", "BOOLEAN NOT NULL DEFAULT TRUE")
             db.session.execute(
                 text(
                     f"ALTER TABLE {quote(table)} ADD COLUMN "

@@ -3,8 +3,8 @@ services:
     name: barangay-minante-1
     runtime: python
     region: singapore
-    # SQLite is the configured runtime database. Render Free is suitable only
-    # for evaluation because its filesystem is ephemeral.
+    # Use the existing Render PostgreSQL service. Uploaded files still use
+    # the ephemeral filesystem on the Free web service plan.
     plan: free
     numInstances: 1
     rootDir: barangay_system
@@ -17,6 +17,10 @@ services:
         value: 3.13.15
       - key: DATA_DIR
         value: /tmp/minante-data
+      - key: DATABASE_URL
+        fromDatabase:
+          name: barangay-minante-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: SESSION_COOKIE_SECURE
